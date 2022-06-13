@@ -2,7 +2,7 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6638217.svg)](https://doi.org/10.5281/zenodo.6638217)
 
-This is a submission for the Heuristic Track of PACE 2022. This is an iterative solver applying two alogithms to improve a solution generating with a Sinkhorn algorithm.
+DreyFVS is a solver for the Directed Feedback Vertex Set problem. It was submitted to the Heuristic Track of PACE Challenge 2022. This is an iterative solver applying two local search algorithms to improve a solution generated with a Sinkhorn-Knopp algorithm.
 
 ## Requirements
 
