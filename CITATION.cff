@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Bathie"
+  given-names: "Gabriel"
+- family-names: "Berthe"
+  given-names: "Gaétan"
+- family-names: "Coudert--Osmont"
+  given-names: "Yoann"
+- family-names: "Desobry"
+  given-names: "David"
+- family-names: "Reinald"
+  given-names: "Amadeus"
+- family-names: "Rocton"
+  given-names: "Mathis"
+title: "DreyFVS"
+version: 1.0.0
+doi: 10.5281/zenodo.6638217
+date-released: 2022-06-13
+url: "https://github.com/Nanored4498/DreyFVS"
