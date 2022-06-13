@@ -4,7 +4,6 @@
 #include "kernel.h"
 #include <algorithm>
 #include <cmath>
-#include <cassert>
 
 using namespace std;
 
@@ -13,10 +12,9 @@ void getUpperBound0(Graph &g, int guess) {
 
 	// Greedily take the best vertex
 	const double mean_val = sqrt(double(g.n)/double(g.n+g.m));
-	vector<double> a(g.n, mean_val), b(g.n, mean_val);
+	vector<double> a(g.n), b(g.n, mean_val);
 	vector<pair<double, int>> diag(g.n);
 	while(g.n) {
-		assert(g.n > 1);
 		int ln = ceil(log2(g.n));
 		const int K = clamp((int64_t(2*g.m+g.n) * (g.n*ln)) / MAX_OP, (int64_t) 1, (int64_t) g.n-1);
 		while(ln--) {
