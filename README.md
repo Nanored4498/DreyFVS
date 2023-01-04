@@ -22,7 +22,7 @@ make -j
 
 ## Using the program
 
-The program uses standard input to read the input graph and print the solution in the standard output just before finishing. Some debug information is printed in the standard error. The input and output formats are described on the [PACE 2020 - Track Details](https://pacechallenge.org/2022/tracks/#heuristic-track). 
+The program uses standard input to read the input graph and print the solution in the standard output just before finishing. Some debug information is printed in the standard error. The input and output formats are described on the [PACE 2022 - Heuristic Track Details](https://pacechallenge.org/2022/tracks/#heuristic-track). 
 
 The program can be used like that:
 ```bash
