@@ -1,25 +1,22 @@
-project(DFVS)
-
 cmake_minimum_required(VERSION 3.5.1)
 
-# set(CMAKE_BUILD_TYPE Release)
-set(CMAKE_CXX_FLAGS_DEBUG "-Og -g")
-set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
-add_compile_options(
-	-Wall
-	-Wextra
-	-Werror
-)
-if("cxx_std_20" IN_LIST CMAKE_CXX_COMPILE_FEATURES)
-	add_compile_options(-std=c++20)
-else()
-	add_compile_options(-std=c++17)
+project(DFVS)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+if(CMAKE_CXX_COMPILER_ID MATCHES GNU OR CMAKE_CXX_COMPILER_ID MATCHES Clang)
+	set(CMAKE_CXX_FLAGS_DEBUG "-Og -g -DPROFILING")
+	set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g -DPROFILING")
+	set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
+	add_compile_options(
+		-Wall
+		-Wextra
+		-Werror
+		-fdiagnostics-color
+	)
 endif()
-add_compile_definitions(
-	$<$<CONFIG:DEBUG>:PROFILING>
-	$<$<CONFIG:RELWITHDEBINFO>:PROFILING>
-)
+
 file(GLOB SOURCES "src/*.cpp")
 
 

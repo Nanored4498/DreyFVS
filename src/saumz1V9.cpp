@@ -4,6 +4,7 @@
 #include "common.h"
 #include "kernel.h"
 
+#include <algorithm>
 #include <queue>
 #include <chrono>
 #include <csignal>
@@ -22,6 +23,7 @@ void showSol(int) {
 	cerr << "SCORE: " << SOL << '\n';
 	Vi sol; for(Vi &s : best_sols) move(s.begin(), s.end(), back_inserter(sol));
 	printSolution(sol);
+	PROFIL_SHOW();
 	exit(0);
 }
 

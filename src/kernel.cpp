@@ -277,7 +277,6 @@ void simplify1(Graph &g) {
 std::pair<std::vector<Graph>, Vi> simplify(Graph &g) {
 	simplify1(g);
 	if(!g.n) return {{}, g.solution};
-	g.clearMoves();
 	SCC scc(g);
 	if(scc.cs.size() == 1) {
 		if(g.n < 500) remove_single_petal(g);
