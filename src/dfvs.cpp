@@ -1,4 +1,4 @@
-#include "saumz1V9.h"
+#include "dfvs.h"
 
 #include "upper_bound.h"
 #include "common.h"
@@ -140,7 +140,7 @@ bool gotloop_bw_fw(const vvi& vvn, const vvi& inv_vvn, const Vb& rmd, int st, bo
 	return false;
 }
 
-std::vector<int> pleaseSaumzDo1V9(Graph& g) {
+std::vector<int> computeDFVS(Graph& g) {
 	const int niters = 7000;
 	const int niters2 = 50000;
 	const double maxTime = 430.e9;

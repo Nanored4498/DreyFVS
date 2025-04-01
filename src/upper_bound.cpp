@@ -95,7 +95,7 @@ Vi getUpperBound(const Graph &g, int guess) {
 		Vi order(g.n);
 		iota(order.begin(), order.end(), 0);
 		sort(order.begin(), order.end(), [&](int u, int v){ return g.deg(u) < g.deg(v); });
-		Graph g2(g, false);
+		Graph g2(g, Graph::NoCopySol{});
 		for(const int u : order) {
 			const int i = g.index[u];
 			const int u2 = g.inv_index->at(i);
@@ -105,7 +105,8 @@ Vi getUpperBound(const Graph &g, int guess) {
 		for(int u = 0; u < g.n; ++u) g.inv_index->at(g.index[u]) = u;
 		guess = .9*(g.solution.size() + g2.solution.size());
 	}
-	Graph g2(g, false); getUpperBound0(g2, guess - g.solution.size());
+	Graph g2(g, Graph::NoCopySol{});
+	getUpperBound0(g2, guess - g.solution.size());
 	for(int u = 0; u < g.n; ++u) g.inv_index->at(g.index[u]) = u;
 	vector<bool> del(g.n, false);
 	Vi seen(g.n, 0), st; int S = 0;

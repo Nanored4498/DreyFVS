@@ -35,7 +35,7 @@ public:
 
 	template<typename InIterator>
 	Set(InIterator first, InIterator last): v(), buckets(nextSize(std::distance(first, last)), -1) {
-		for(;first != last; ++first) insert(*first);
+		while(first != last) insert(*(first++));
 	}
 
 	std::size_t size() const noexcept { return v.size(); }
@@ -44,7 +44,7 @@ public:
 	iterator begin() const noexcept { return v.begin(); }
 	iterator end()   const noexcept { return v.end(); }
 
-	int key(const T &x) const {
+	inline int key(const T &x) const {
 		return std::hash<T>()(x) % buckets.size();
 	}
 
@@ -70,7 +70,7 @@ public:
 				if(v[i].first == x) {
 					if(i+1 != (int)v.size()) v[i] = move(v.back());
 					v.pop_back();
-					rehash(nextSize(v.size()));
+					return rehash(nextSize(v.size()));
 				}
 			return;
 		}
@@ -78,7 +78,7 @@ public:
 		if(i == -1) return;
 		if(v[i].first == x) {
 			buckets[b] = v[i].second;
-			pop(i);
+			return pop(i);
 		}
 		while(v[i].second != -1 && v[v[i].second].first != x) i = v[i].second;
 		const int j = v[i].second;
@@ -86,7 +86,7 @@ public:
 		v[i].second = v[j].second;
 		pop(j);
 	}
-	void erase(iterator it) { erase(*it); }
+	inline void erase(iterator it) { erase(*it); }
 
 	bool count(const T &x) const {
 		if(buckets.empty()) return false;
@@ -102,8 +102,8 @@ protected:
 										11229331, 22458671, 44917381, 89834777, 179669557, 359339171};
 	
 	static size_t nextSize(size_t n) {
-		auto it = std::lower_bound(primes, primes+sizeof(primes)/sizeof(size_t), n);
-		assert(it != primes+sizeof(primes)/sizeof(size_t));
+		auto it = std::lower_bound(primes, primes+std::size(primes), n);
+		assert(it != primes+std::size(primes));
 		return *it;
 	}
 

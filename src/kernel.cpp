@@ -115,7 +115,7 @@ bool has_two_petals(int v, Graph &g, Vi &parent, Vi &parent2, Vb &in_path, Vi& s
 	while (!q.empty())
 	{
 		const int u = q.front(); q.pop();
-		for (const int w: g.out_neighbors(u))
+		for (const int w: g.adj_out[u])
 			if (seen[w] != count)
 			{
 				parent[w] = u;
@@ -139,7 +139,7 @@ bool has_two_petals(int v, Graph &g, Vi &parent, Vi &parent2, Vb &in_path, Vi& s
 	while (!q.empty())
 	{
 		const int u = q.front(); q.pop();
-		for(int w: g.out_neighbors(u)) {
+		for(int w: g.adj_out[u]) {
 			if(in_path[w]) {
 				w = parent[w];
 				if(w == v) continue;
@@ -165,8 +165,7 @@ bool has_two_petals(int v, Graph &g, Vi &parent, Vi &parent2, Vb &in_path, Vi& s
 	PROFIL_RET1(seen[v] == count);
 }
 
-void remove_single_petal(Graph &g)
-{
+void remove_single_petal(Graph &g) {
 	PROFIL_FUNC("RM petal");
 	int count = 0;
 	Vi pred(g.n), pred2(g.n), seen(g.n, 0);
