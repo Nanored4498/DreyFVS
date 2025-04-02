@@ -47,7 +47,7 @@ void getUpperBound0(Graph &g, int guess) {
 		}
 
 		// Try more clique reduction and try splitting in different scc
-		Kernel::cliqueReduction(g);
+		Kernel::core(g);
 		if(!g.n) return;
 		Kernel::SCC scc(g);
 		if(scc.cs.size() < 2) continue;
@@ -79,7 +79,7 @@ void getUpperBound0(Graph &g, int guess) {
 				}
 				g2.m += g2.adj_in[i].size();
 			}
-			Kernel::simplify1(g2);
+			Kernel::reduce(g2);
 			int gu2 = max(1, guess - (int)g.solution.size());
 			n2 -= g2.n;
 			getUpperBound0(g2, ((int64_t)gu2 * g2.n)/(n2+g2.n));

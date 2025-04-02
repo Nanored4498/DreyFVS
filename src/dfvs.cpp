@@ -11,15 +11,15 @@
 
 using namespace std;
 
-using vvi = vector<Vi>;
+using VVi = vector<Vi>;
 
-const int64_t SEED = 12012340032;
-auto rengine = std::default_random_engine(SEED);
+static const int64_t SEED = 12012340032;
+static auto rengine = std::default_random_engine(SEED);
 
-int SOL = 0;
-vvi best_sols;
+static int SOL = 0;
+static VVi best_sols;
 
-void showSol(int) {
+static void showSol(int) {
 	cerr << "SCORE: " << SOL << '\n';
 	Vi sol; for(Vi &s : best_sols) move(s.begin(), s.end(), back_inserter(sol));
 	printSolution(sol);
@@ -27,7 +27,7 @@ void showSol(int) {
 	exit(0);
 }
 
-int delta_swap(int u, int v, const vvi& vvn, const vvi& inv_vvn, Vi &pos, Vi &nb_back) {
+static int delta_swap(int u, int v, const VVi& vvn, const VVi& inv_vvn, Vi &pos, Vi &nb_back) {
 	static Vi add;
 	static Vb inQ;
 	if(vvn.size() > add.size()) {
@@ -98,8 +98,8 @@ int delta_swap(int u, int v, const vvi& vvn, const vvi& inv_vvn, Vi &pos, Vi &nb
 	return r;
 }
 
-Vi loop;
-bool gotloop_bw_fw(const vvi& vvn, const vvi& inv_vvn, const Vb& rmd, int st, bool genLoop=false) {
+static Vi loop;
+static bool gotloop_bw_fw(const VVi& vvn, const VVi& inv_vvn, const Vb& rmd, int st, bool genLoop=false) {
 	static Vb reached;
 	static Vi stack, prev;
 	if(reached.size() < vvn.size()) {
@@ -146,15 +146,15 @@ std::vector<int> computeDFVS(Graph& g) {
 	const double maxTime = 430.e9;
 
 	const chrono::high_resolution_clock::time_point st_time = chrono::high_resolution_clock::now();
-	auto [gs, sol0] = Kernel::simplify(g);
+	auto [gs, sol0] = Kernel::reduce_and_split(g);
 	cerr << "gs size : " << gs.size() << '\n';
 	int totM = 0;
 	for(const Graph &g : gs) totM += g.m;
 	best_sols.resize(gs.size()+1);
-	best_sols.back() = move(sol0);
+	best_sols.back() = std::move(sol0);
 	for(int i = 0; i < (int)gs.size(); ++i) best_sols[i] = getUpperBound(gs[i], -1);
 	for(const Vi &s : best_sols) SOL += s.size();
-	double ub_time = (chrono::high_resolution_clock::now() - st_time).count();
+	const double ub_time = (chrono::high_resolution_clock::now() - st_time).count();
 
 	// Setup signal handler
 	struct sigaction sigact;
@@ -169,7 +169,7 @@ std::vector<int> computeDFVS(Graph& g) {
 		const Graph &g = gs[gi];
 		Vi &sol = best_sols[gi];
 		chrono::high_resolution_clock::time_point st_time = chrono::high_resolution_clock::now();
-		vvi vvn(g.n), inv_vvn(g.n);
+		VVi vvn(g.n), inv_vvn(g.n);
 		for(int i = 0; i < g.n; ++i) {
 			inv_vvn[i].assign(g.adj_in[i].begin(), g.adj_in[i].end());
 			vvn[i].assign(g.adj_out[i].begin(), g.adj_out[i].end());
@@ -242,7 +242,7 @@ std::vector<int> computeDFVS(Graph& g) {
 		const Graph &g = gs[gi];
 		Vi &sol = best_sols[gi];
 		chrono::high_resolution_clock::time_point st_time = chrono::high_resolution_clock::now(), end_time;
-		vvi vvn(g.n), inv_vvn(g.n);
+		VVi vvn(g.n), inv_vvn(g.n);
 		for(int i = 0; i < g.n; ++i) {
 			inv_vvn[i].assign(g.adj_in[i].begin(), g.adj_in[i].end());
 			vvn[i].assign(g.adj_out[i].begin(), g.adj_out[i].end());

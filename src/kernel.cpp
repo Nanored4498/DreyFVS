@@ -22,33 +22,26 @@ void removeVertex(Graph &g, int i, bool inSol) {
 		if(add) g.solution.push_back(g.index[i]);
 		else for(int j : g.adj_in[i]) for(int k : g.adj_out[i]) g.add_edge(j, k);
 	};
+	const auto condAdd2Stack = [&](const int j)->void {
+		if(isRemoved[j]) return;
+		const bool self_loop = g.adj_out[j].count(j);
+		if(self_loop || g.adj_in[j].size() <= 1 || g.adj_out[j].size() <= 1)
+			add2Stack(j, self_loop);
+	};
 	add2Stack(i, inSol);
 	do {
-		dfs:
 		const int i = stack.back();
+		stack.pop_back();
 		while(!g.adj_in[i].empty()) {
 			const int j = *(--g.adj_in[i].end());
 			g.remove_edge(j, i);
-			if(!isRemoved[j]) {
-				const bool self_loop = g.adj_out[j].count(j);
-				if(self_loop || g.adj_in[j].size() <= 1 || g.adj_out[j].size() <= 1) {
-					add2Stack(j, self_loop);
-					goto dfs;
-				}
-			}
+			condAdd2Stack(j);
 		}
 		while(!g.adj_out[i].empty()) {
 			const int j = *(--g.adj_out[i].end());
 			g.remove_edge(i, j);
-			if(!isRemoved[j]) {
-				const bool self_loop = g.adj_out[j].count(j);
-				if(self_loop || g.adj_in[j].size() <= 1 || g.adj_out[j].size() <= 1) {
-					add2Stack(j, self_loop);
-					goto dfs;
-				}
-			}
+			condAdd2Stack(j);
 		}
-		stack.pop_back();
 	} while(!stack.empty());
 	const int nn = g.n-removed.size();
 	int r = 0;
@@ -106,7 +99,7 @@ SCC::SCC(const Graph &g, bool use_pi): c(g.n, -1) {
  * Tests whether all cycles containing v also intersect at another vertex.
  * If yes, we can bypass v.
  */
-bool has_two_petals(int v, Graph &g, Vi &parent, Vi &parent2, Vb &in_path, Vi& seen, int &count) {
+static bool has_two_petals(int v, Graph &g, Vi &parent, Vi &parent2, Vb &in_path, Vi& seen, int &count) {
 	PROFIL_FUNC("Has petal");
 	// First, we try to find a simple path an out_neighbor of v to v, using a BFS.
 	queue<int> q;
@@ -165,7 +158,8 @@ bool has_two_petals(int v, Graph &g, Vi &parent, Vi &parent2, Vb &in_path, Vi& s
 	PROFIL_RET1(seen[v] == count);
 }
 
-void remove_single_petal(Graph &g) {
+// remove vertices having a single petal
+static void remove_single_petal(Graph &g) {
 	PROFIL_FUNC("RM petal");
 	int count = 0;
 	Vi pred(g.n), pred2(g.n), seen(g.n, 0);
@@ -185,27 +179,27 @@ void remove_single_petal(Graph &g) {
 	PROFIL_RET;
 }
 
-bool cliqueReduction(Graph &g, int u) {
+// Apply CORE on vertex u
+static bool core0(Graph &g, int u) {
 	for(const Si *e : {&g.adj_in[u], &g.adj_out[u]}) {
-		bool bad = false;
 		for(auto it = e->begin(); it != e->end(); ++it)
 			for(auto it2 = it; ++it2 != e->end();)
 				if(!g.adj_in[*it].count(*it2) || !g.adj_out[*it].count(*it2))
-					{ bad = true; goto endCheck; }
-		endCheck:
-		if(bad) continue;
+					goto notCore;
 		Kernel::removeVertex(g, u, false);
 		return true;
+		notCore:
+		continue;
 	}
 	return false;
 }
 
-void cliqueReduction(Graph &g) {
+void core(Graph &g) {
 	PROFIL_FUNC("Clique Reduction");
 	bool improve;
 	do {
 		improve = false;
-		for(int u = g.n-1; u >= 0; --u) if(cliqueReduction(g, u)) {
+		for(int u = g.n-1; u >= 0; --u) if(core0(g, u)) {
 			u = min(u, g.n);
 			improve = true;
 		}
@@ -213,7 +207,10 @@ void cliqueReduction(Graph &g) {
 	PROFIL_RET;
 }
 
-bool PIedge(Graph &g) {
+// Pi-edge reduction
+// Remove the acyclic edges of G-PIE
+// Where PIE is the graph containing the bi-direction edges
+static bool PIedge(Graph &g) {
 	if(!g.n) return false;
 	PROFIL_FUNC("PI edge reduc");
 	SCC scc(g, false);
@@ -221,7 +218,11 @@ bool PIedge(Graph &g) {
 	Vi to_rm;
 	bool simp = false;
 	for(int u = 0; u < g.n; ++u) {
-		for(int v : g.adj_out[u]) if(scc.c[u] != scc.c[v] && !g.adj_in[u].count(v)) to_rm.push_back(v);
+		for(int v : g.adj_out[u]) {
+			if(scc.c[u] == scc.c[v]) continue;
+			if(g.adj_in[u].count(v)) continue; // PI edge
+			to_rm.push_back(v);
+		}
 		if(to_rm.empty()) continue;
 		simp = true;
 		for(int v : to_rm) g.remove_edge(u, v);
@@ -230,17 +231,23 @@ bool PIedge(Graph &g) {
 	PROFIL_RET1(simp);
 }
 
-bool domination(Graph &g) {
+// Domination reduction
+// Remove dominated edges
+static bool domination(Graph &g) {
 	if(!g.n) return false;
 	PROFIL_FUNC("Domination reduc");
 	Vi to_rm;
 	bool simp = false;
 	for(int u = 0; u < g.n; ++u) {
-		for(int v : g.adj_out[u]) if(!g.adj_in[u].count(v)) {
+		for(int v : g.adj_out[u]) if(!g.adj_in[u].count(v)) { // Not Pi-edge (u, v)
+			// If non Pi predecessors of u (w) are predecessors of v then (u, v) can be removed
+			// w -> u -> v ==> w -> v
 			for(int w : g.adj_in[u]) if(!g.adj_out[u].count(w) && !g.adj_in[v].count(w)) goto second;
 			to_rm.push_back(v);
 			continue;
 			second:
+			// If non Pi successors of v (w) are successors of u then (u, v) can be removed
+			// u -> v -> w ==> u -> w
 			for(int w : g.adj_out[v]) if(!g.adj_in[v].count(w) && !g.adj_out[u].count(w)) goto end;
 			to_rm.push_back(v);
 			end:
@@ -254,18 +261,19 @@ bool domination(Graph &g) {
 	PROFIL_RET1(simp);
 }
 
-void simplify0(Graph &g) {
+// Apply deg <= 1 reductions (IN0, OUT0, IN1, OUT1) and CORE' reduction
+static void reduce0(Graph &g) {
 	for(int i = g.n-1; i >= 0; --i) if(g.adj_in[i].size() <= 1 || g.adj_out[i].size() <= 1) {
 		removeVertex(g, i, false);
 		i = min(i, g.n);
 	}
-	cliqueReduction(g);
+	core(g);
 }
 
-void simplify1(Graph &g) {
+void reduce(Graph &g) {
 	bool modif;
 	do {
-		simplify0(g);
+		reduce0(g);
 		modif = false;
 		modif |= PIedge(g);
 		modif |= domination(g);
@@ -273,19 +281,21 @@ void simplify1(Graph &g) {
 	if(g.n < 80) Kernel::remove_single_petal(g);
 }
 
-std::pair<std::vector<Graph>, Vi> simplify(Graph &g) {
-	simplify1(g);
+pair<vector<Graph>, Vi> reduce_and_split(Graph &g) {
+	reduce(g);
 	if(!g.n) return {{}, g.solution};
 	SCC scc(g);
 	if(scc.cs.size() == 1) {
 		if(g.n < 500) remove_single_petal(g);
 		if(!g.n) return {{}, g.solution};
-		Vi sol = move(g.solution);
-		return {{move(g)}, move(sol)};
+		pair<vector<Graph>, Vi> ans;
+		ans.second = std::move(g.solution);
+		ans.first.emplace_back(std::move(g));
+		return ans;
 	}
 	Vi newInd(g.n);
-	std::vector<Graph> ans;
-	Vi sol = move(g.solution);
+	auto ans = make_pair<vector<Graph>, Vi>(vector<Graph>{}, std::move(g.solution));
+	auto &[gs, sol] = ans;
 	for(auto &c : scc.cs) {
 		const int C = scc.c[c[0]];
 		Graph g2(c.size(), g.inv_index);
@@ -295,12 +305,11 @@ std::pair<std::vector<Graph>, Vi> simplify(Graph &g) {
 			g.inv_index->at(g2.index[i]) = i;
 		}
 		for(int i = 0; i < (int) c.size(); ++i) {
-			g2.adj_in [i] = move(g.adj_in [c[i]]);
-			g2.adj_out[i] = move(g.adj_out[c[i]]);
-			for(auto e : {&g2.adj_in [i], &g2.adj_out[i]}) {
+			g2.adj_in [i] = std::move(g.adj_in [c[i]]);
+			g2.adj_out[i] = std::move(g.adj_out[c[i]]);
+			for(Si* e : {&g2.adj_in[i], &g2.adj_out[i]}) {
 				Vi tmp(e->begin(), e->end());
-				int j = 0;
-				while(j < (int) tmp.size())
+				for(int j = 0; j < (int) tmp.size();)
 					if(scc.c[tmp[j]] == C) {
 						tmp[j] = newInd[tmp[j]];
 						++ j;
@@ -312,13 +321,11 @@ std::pair<std::vector<Graph>, Vi> simplify(Graph &g) {
 			}
 			g2.m += g2.adj_in[i].size();
 		}
-		auto [gs, s] = simplify(g2);
-		ans.reserve(ans.size() + gs.size());
-		move(gs.begin(), gs.end(), back_inserter(ans));
-		sol.reserve(sol.size() + s.size());
-		sol.insert(sol.end(), s.begin(), s.end());
+		auto [gs2, sol2] = reduce_and_split(g2);
+		move(gs2.begin(), gs2.end(), back_inserter(gs));
+		sol.insert(sol.end(), sol2.begin(), sol2.end());
 	}
-	return {move(ans), move(sol)};
+	return ans;
 }
 
 }
