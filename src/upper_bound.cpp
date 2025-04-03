@@ -7,10 +7,10 @@
 
 using namespace std;
 
-void getUpperBound0(Graph &g, int guess) {
+// Construct a first solution using Sinkhorn–Knopp algorithm
+static void getUpperBound0(Graph &g, int guess) {
 	constexpr int64_t MAX_OP = 5e9;
 
-	// Greedily take the best vertex
 	const double mean_val = sqrt(double(g.n)/double(g.n+g.m));
 	vector<double> a(g.n), b(g.n, mean_val);
 	vector<pair<double, int>> diag(g.n);
@@ -40,13 +40,12 @@ void getUpperBound0(Graph &g, int guess) {
 			else { mvs[i] = { g.index[it0->second], true }; ++it0; }
 
 		for(auto [ind, inSol] : mvs) {
-			int i = g.inv_index->at(ind);
-			if(i >= g.n || g.index[i] != ind) continue;
-			// Remove the selected vertex i
+			const int i = g.inv_index->at(ind);
+			if(i >= g.n || g.index[i] != ind) continue; // vertex already removed
 			Kernel::removeVertex(g, i, inSol);
 		}
 
-		// Try more clique reduction and try splitting in different scc
+		// Apply CORE reduction and split in SCCs
 		Kernel::core(g);
 		if(!g.n) return;
 		Kernel::SCC scc(g);
@@ -62,12 +61,11 @@ void getUpperBound0(Graph &g, int guess) {
 				g.inv_index->at(g2.index[i]) = i;
 			}
 			for(int i = 0; i < (int) c.size(); ++i) {
-				g2.adj_in [i] = move(g.adj_in [c[i]]);
-				g2.adj_out[i] = move(g.adj_out[c[i]]);
-				for(auto e : {&g2.adj_in [i], &g2.adj_out[i]}) {
+				g2.adj_in [i] = std::move(g.adj_in [c[i]]);
+				g2.adj_out[i] = std::move(g.adj_out[c[i]]);
+				for(Si* e : {&g2.adj_in[i], &g2.adj_out[i]}) {
 					Vi tmp(e->begin(), e->end());
-					int j = 0;
-					while(j < (int) tmp.size())
+					for(int j = 0; j < (int) tmp.size();)
 						if(scc.c[tmp[j]] == C) {
 							tmp[j] = newInd[tmp[j]];
 							++ j;
@@ -80,9 +78,9 @@ void getUpperBound0(Graph &g, int guess) {
 				g2.m += g2.adj_in[i].size();
 			}
 			Kernel::reduce(g2);
-			int gu2 = max(1, guess - (int)g.solution.size());
+			const int64_t guess2 = max(1, guess - (int)g.solution.size());
+			getUpperBound0(g2, (guess2 * g2.n)/n2);
 			n2 -= g2.n;
-			getUpperBound0(g2, ((int64_t)gu2 * g2.n)/(n2+g2.n));
 			g.solution.insert(g.solution.end(), g2.solution.begin(), g2.solution.end());
 		}
 		return;
@@ -91,6 +89,8 @@ void getUpperBound0(Graph &g, int guess) {
 
 Vi getUpperBound(const Graph &g, int guess) {
 	PROFIL_FUNC("Upper bound");
+
+	// If no guess is given, set guess to 0.9 * [solution obtained a greedy algorithm over degree]
 	if(guess == -1) {
 		Vi order(g.n);
 		iota(order.begin(), order.end(), 0);
@@ -99,17 +99,24 @@ Vi getUpperBound(const Graph &g, int guess) {
 		for(const int u : order) {
 			const int i = g.index[u];
 			const int u2 = g.inv_index->at(i);
-			if(u2 >= g2.n || g2.index[u2] != i) continue;
+			if(u2 >= g2.n || g2.index[u2] != i) continue; // vertex has already been removed
 			Kernel::removeVertex(g2, u2, true);
 		}
 		for(int u = 0; u < g.n; ++u) g.inv_index->at(g.index[u]) = u;
+		// TODO: g.solution.size() + 0.9 * g2.solution.size() would be better
+		// but constant 0.9 may change
 		guess = .9*(g.solution.size() + g2.solution.size());
 	}
+
+	// Use Sinkhorn–Knopp algorithm
 	Graph g2(g, Graph::NoCopySol{});
 	getUpperBound0(g2, guess - g.solution.size());
 	for(int u = 0; u < g.n; ++u) g.inv_index->at(g.index[u]) = u;
+
+	// Keep only a subset of the g2 solution
 	vector<bool> del(g.n, false);
-	Vi seen(g.n, 0), st; int S = 0;
+	Vi seen(g.n, 0), st;
+	int S = 0;
 	for(int i : g2.solution) del[g.inv_index->at(i)] = true;
 	Vi sol;
 	while(!g2.solution.empty()) {
@@ -117,24 +124,20 @@ Vi getUpperBound(const Graph &g, int guess) {
 		g2.solution.pop_back();
 		++S;
 		st.push_back(u);
-		bool found = false;
 		while(!st.empty()) {
 			int v = st.back(); st.pop_back();
-			for(int w : g.adj_out[v])
-				if(w == u) {
-					found = true;
-					goto end;
-				} else if(!del[w] && seen[w] != S) {
-					seen[w] = S;
-					st.push_back(w);
-				}
+			for(const int w : g.adj_out[v]) {
+				if(w == u) goto cycle_found;
+				if(del[w] || seen[w] == S) continue;
+				seen[w] = S;
+				st.push_back(w);
+			}
 		}
-		end:
-		if(!found) del[u] = false;
-		else {
-			sol.push_back(g.index[u]);
-			st.clear();
-		}
+		del[u] = false;
+		continue;
+		cycle_found:
+		sol.push_back(g.index[u]);
+		st.clear();
 	}
 	PROFIL_RET1(sol);
 }
