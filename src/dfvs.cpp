@@ -21,7 +21,8 @@ static VVi best_sols;
 
 static void showSol(int) {
 	cerr << "SCORE: " << SOL << '\n';
-	Vi sol; for(Vi &s : best_sols) move(s.begin(), s.end(), back_inserter(sol));
+	Vi sol;
+	for(Vi &s : best_sols) move(s.begin(), s.end(), back_inserter(sol));
 	printSolution(sol);
 	PROFIL_SHOW();
 	exit(0);
@@ -99,31 +100,32 @@ static int delta_swap(int u, int v, const VVi& vvn, const VVi& inv_vvn, Vi &pos,
 }
 
 static Vi loop;
-static bool gotloop_bw_fw(const VVi& vvn, const VVi& inv_vvn, const Vb& rmd, int st, bool genLoop=false) {
+static bool find_cycle_bw_fw(const VVi& vin, const VVi& vout, const Vb& rmd, int start, bool genLoop=false) {
 	static Vb reached;
 	static Vi stack, prev;
-	if(reached.size() < vvn.size()) {
-		reached.resize(vvn.size(), 0);
-		prev.resize(2*vvn.size());
+	if(reached.size() < vin.size()) {
+		reached.resize(vin.size(), 0);
+		prev.resize(2*vin.size());
 	}
+	// TODO: merge q and stack
 	queue<int> q;
-	q.emplace(st<<1);
-	q.emplace((st<<1)|1);
-	reached[st] = 0b11;
-	stack.push_back(st);
+	q.emplace(start<<1);
+	q.emplace((start<<1)|1);
+	reached[start] = 0b11;
+	stack.push_back(start);
 	while(!q.empty()) {
-		const int dir = q.front()&1;
 		const int cur = q.front();
-		const Vi& neiv = dir == 0 ? vvn[q.front()>>1] : inv_vvn[q.front()>>1];
+		const int dir = cur&1;
+		const Vi& neiv = dir == 0 ? vin[cur>>1] : vout[cur>>1];
 		q.pop();
-		for(int n : neiv) if(!rmd[n]) {
+		for(const int n : neiv) if(!rmd[n]) {
 			if(reached[n] & (1 << (dir ^ 1))) {
 				for(int i : stack) reached[i] = 0;
 				stack.clear();
 				if(genLoop) {
 					loop.clear();
 					for(const int i0 : {cur,(n<<1)|(dir^1)})
-						for(int i = i0; (i>>1)!=st; i = prev[i])
+						for(int i = i0; (i>>1)!=start; i = prev[i])
 							loop.push_back(i>>1);
 				}
 				return true;
@@ -145,6 +147,8 @@ std::vector<int> computeDFVS(Graph& g) {
 	const int niters2 = 50000;
 	const double maxTime = 430.e9;
 
+
+	// Init solution
 	const chrono::high_resolution_clock::time_point st_time = chrono::high_resolution_clock::now();
 	auto [gs, sol0] = Kernel::reduce_and_split(g);
 	cerr << "gs size : " << gs.size() << '\n';
@@ -169,19 +173,22 @@ std::vector<int> computeDFVS(Graph& g) {
 		const Graph &g = gs[gi];
 		Vi &sol = best_sols[gi];
 		chrono::high_resolution_clock::time_point st_time = chrono::high_resolution_clock::now();
-		VVi vvn(g.n), inv_vvn(g.n);
+		VVi vin(g.n), vout(g.n);
 		for(int i = 0; i < g.n; ++i) {
-			inv_vvn[i].assign(g.adj_in[i].begin(), g.adj_in[i].end());
-			vvn[i].assign(g.adj_out[i].begin(), g.adj_out[i].end());
+			vout[i].assign(g.adj_in[i].begin(), g.adj_in[i].end());
+			vin[i].assign(g.adj_out[i].begin(), g.adj_out[i].end());
 		}
 		int restart = 0;
 		Vi deg_v(g.n);
-		Vi ids(g.n); iota(ids.begin(), ids.end(), 0);
+		Vi ids(g.n);
+		iota(ids.begin(), ids.end(), 0);
 		int nit = min(niters, g.m);
 		int lastit;
 
 		start:
+		// starting point
 		const Vi ub = restart ? getUpperBound(g, g.n > 2000 ? max(1, (int)sol.size() + int(rengine()%restart) - restart/2) : (int)sol.size()) : sol;
+		// if better update solution
 		if(ub.size() < sol.size()) {
 			SOL -= sol.size() - ub.size();
 			sol = ub;
@@ -197,8 +204,8 @@ std::vector<int> computeDFVS(Graph& g) {
 
 			for(int i = 0; i < g.n; ++i) {
 				int a=0, b=0;
-				for(int j : vvn[i]) if(!rmd[j]) ++a;
-				for(int j : inv_vvn[i]) if(!rmd[j]) ++b;
+				for(int j : vin[i]) if(!rmd[j]) ++a;
+				for(int j : vout[i]) if(!rmd[j]) ++b;
 				if(a > b) swap(a, b);
 				deg_v[i] = 3*a+2*b;
 			}
@@ -206,21 +213,22 @@ std::vector<int> computeDFVS(Graph& g) {
 			else sort(ids.begin(), ids.end(), [&](int i, int j) { return deg_v[i] < deg_v[j]; });
 			for(int i : ids) if(rmd[i]) {
 				rmd[i] = false;
-				rmd[i] = gotloop_bw_fw(vvn, inv_vvn, rmd, i, true);
+				rmd[i] = find_cycle_bw_fw(vin, vout, rmd, i, true);
 				if(rmd[i]) {
 					if(g.n < 15000 && (rengine()&1)) continue;
-					if(rengine()%2==0) shuffle(loop.begin(), loop.end(), rengine);
-					else sort(loop.begin(), loop.end(), [&](int i, int j) { return deg_v[i] > deg_v[j]; });
-					for(int j : loop) {
+					if(rengine()&1) sort(loop.begin(), loop.end(), [&](int i, int j) { return deg_v[i] > deg_v[j]; });
+					else shuffle(loop.begin(), loop.end(), rengine);
+					for(const int j : loop) {
 						swap(rmd[i], rmd[j]);
-						if(gotloop_bw_fw(vvn, inv_vvn, rmd, i)) swap(rmd[i], rmd[j]);
+						if(find_cycle_bw_fw(vin, vout, rmd, i)) swap(rmd[i], rmd[j]);
 						else break;
 					}
-				} else {
+				} else { // improve solution
 					lastit = iter;
 					if(--count < (int) sol.size()) {
 						SOL -= sol.size() - count;
 						cerr << "Iter " << iter << ": " << SOL << '\n';
+						// TODO: Why using tmp???
 						tmp.clear();
 						for(int i = 0; i < g.n; ++i) if(rmd[i]) tmp.push_back(g.index[i]);
 						swap(tmp, sol);
